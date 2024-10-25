@@ -7,6 +7,7 @@ fn main() {
         .add_plugins((DefaultPlugins, menu::plugin))
         // .add_startup_system(pan_orbit_camera::spawn_camera)
         .add_systems(Startup, setup)
+
         // .add_system(pan_orbit_camera::pan_orbit_camera)
         .run();
 }

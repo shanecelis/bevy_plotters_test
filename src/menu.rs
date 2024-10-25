@@ -7,10 +7,13 @@ use plotters::prelude::*;
 use plotters::backend::BGRXPixel;
 use plotters::style::Color as PlottersColor;
 use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::input::common_conditions::{input_just_pressed, input_just_released};
 
 pub(crate) fn plugin(app: &mut App) {
     app
         .add_systems(Startup, menu_setup)
+        .add_systems(Update,
+                     update_image.run_if(input_just_pressed(KeyCode::Space)))
         .add_plugins(UiMaterialPlugin::<NoAlphaUiMaterial>::default());
 }
 
@@ -26,7 +29,7 @@ fn menu_setup(mut commands: Commands,
     // let (prefix, bytes, suffix) = pixels.align_to_mut::<u8>();
     // assert_eq!(prefix.len(), 0);
     // assert_eq!(suffix.len(), 0);
-    let mut bytes: Vec<u8> = vec![0xff; (WIDTH * HEIGHT * 4) as usize];
+    let mut bytes: Vec<u8> = vec![0x0; (WIDTH * HEIGHT * 4) as usize];
     // for i in 0..bytes.len() / 4 {
 
     //     bytes[i * 4 + 0] = 0xff;
@@ -145,7 +148,7 @@ fn menu_setup(mut commands: Commands,
                 },
                 material: ui_materials.add(NoAlphaUiMaterial {
                     color: LinearRgba::WHITE,
-                    color_texture: image,
+                    texture: image,
                 }),
                 ..default()
             });
@@ -170,6 +173,71 @@ fn set_alpha(bytes: &mut [u8], alpha: u8) {
     }
 }
 
+fn update_image(query: Query<&Handle<NoAlphaUiMaterial>>,
+                mut ui_materials: ResMut<Assets<NoAlphaUiMaterial>>,
+                mut images: ResMut<Assets<Image>>) {
+    let handle = query.single();
+    // Must get mut handle of material, otherwise it won't shows changes to
+    // image.
+    if let Some(material) = ui_materials.get_mut(handle) {
+    if let Some(image) = images.get_mut(&material.texture)
+    {
+        let root = BitMapBackend::<BGRXPixel>::with_buffer_and_format(&mut image.data, (WIDTH, HEIGHT)).unwrap().into_drawing_area();
+        // fill with black removes the alpha channel.
+        root.fill(&GREEN).unwrap();
+        // root.fill(&GREEN).unwrap();
+        // root.fill(&RED).unwrap();
+
+        // root.fill(&GREEN).unwrap();
+        // root.fill(&TRANSPARENT).unwrap();
+        // root.draw_rect((0,0), (10, 10), &TRANSPARENT, true).unwrap();
+        // root.draw(&Rectangle::new([(0.0,0.0), (10.0, 10.0)],
+        //                           BLACK.filled())).unwrap();
+        // let white: RGBAColor = RGBAColor(255, 0, 0, 1.0);
+        // white.alpha = 1.0;
+        // root.draw_pixel((0,0), &WHITE.mix(0.5)).unwrap();
+        // root.draw_pixel((0,0), &white).unwrap();
+        // root.draw_pixel((WIDTH as i32,HEIGHT as i32), &white).unwrap();
+        // root.draw_pixel((WIDTH  as i32/ 2 ,HEIGHT  as i32/ 2), &white).unwrap();
+        // root.fill(&WHITE).unwrap();
+        // let style = ShapeStyle {
+        //     color: WHITE.into(),
+        //     filled: false,
+        //     stroke_width: 2,
+        // };
+        let mut chart = ChartBuilder::on(&root)
+        //     .caption("y=x^2", ("sans-serif", 8).into_font())
+            .margin(5)
+        //     .x_label_area_size(5)
+        //     .y_label_area_size(5)
+            .build_cartesian_2d(-1f32..1f32, -0.1f32..1f32)
+            .unwrap();
+        // // chart.configure_mesh()
+        // //     .light_line_style(style)
+        // //     .draw().unwrap();
+
+        chart
+            .draw_series(LineSeries::new(
+                (-50..=50).map(|x| x as f32 / 50.0).map(|x| (x, x * x * x)),
+                &RED,
+            ))
+            .unwrap()
+        //     .label("y = x^2")
+        //     .legend(|(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], &RED));
+        ;
+
+        // chart
+        //     .configure_series_labels()
+        //     .background_style(&BLACK)
+        //     .border_style(&WHITE)
+        //     .draw()
+        //     .unwrap();
+
+        root.present().unwrap();
+    }
+    }
+}
+
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
 struct NoAlphaUiMaterial {
     /// Color multiplied with the image
@@ -178,7 +246,7 @@ struct NoAlphaUiMaterial {
     /// Image used to represent graph
     #[texture(1)]
     #[sampler(2)]
-    color_texture: Handle<Image>,
+    texture: Handle<Image>,
 }
 
 impl UiMaterial for NoAlphaUiMaterial {
